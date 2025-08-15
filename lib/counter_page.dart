@@ -8,12 +8,12 @@ class CounterPage extends StatefulWidget {
 }
 
 class _CounterPageState extends State<CounterPage> {
-  int counter = 0;
+  int sayac = 0;
 
-  void levelup() => setState(() => counter++);
-  void levelup2() => setState(() => counter+= 2);
-  void zero() {
-    setState(() => counter = 0);
+  void arttir() => setState(() => sayac++);
+  void arttir2() => setState(() => sayac += 2);
+  void sifirla() {
+    setState(() => sayac = 0);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Sayaç sıfırlandı')),
     );
@@ -28,17 +28,17 @@ class _CounterPageState extends State<CounterPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              "Butona $counter kez bastınız.",
+              "Butona $sayac kez bastınız.",
               style: const TextStyle(fontSize: 22),
             ),
             const SizedBox(height: 20),
             Wrap(
               spacing: 12,
               children: [
-                ElevatedButton(onPressed: levelup, child: const Text("Artır")),
-                FilledButton(onPressed: levelup2, child: const Text("+2")),
+                ElevatedButton(onPressed: arttir, child: const Text("Artır")),
+                FilledButton(onPressed: arttir2, child: const Text("+2")),
                 OutlinedButton(
-                  onPressed: counter == 0 ? null : zero,
+                  onPressed: sayac == 0 ? null : sifirla,
                   child: const Text("Sıfırla"),
                 ),
               ],
