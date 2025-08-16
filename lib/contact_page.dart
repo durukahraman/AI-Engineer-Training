@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-
 class ContactPage extends StatefulWidget {
   const ContactPage({super.key});
 
@@ -9,116 +8,126 @@ class ContactPage extends StatefulWidget {
 }
 
 class _ContactPageState extends State<ContactPage> {
-  // 1) Form anahtarı ve controller'lar
   final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _msgCtrl = TextEditingController();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _messageController = TextEditingController();
 
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _emailCtrl.dispose();
-    _msgCtrl.dispose();
-    super.dispose();
-  }
-
-  // 2) Basit e-posta kontrolü (çok katı değil, başlangıç için yeterli)
-  String? _validateEmail(String? v) {
-    if (v == null || v.trim().isEmpty) return 'E-posta gerekli';
-    final email = v.trim();
-    final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
-    return ok ? null : 'Geçerli bir e-posta gir';
-  }
-
-  // 3) Boş bırakma kontrolleri
-  String? _validateRequired(String? v, String field) {
-    if (v == null || v.trim().isEmpty) return '$field gerekli';
-    return null;
-  }
-
-  void _submit() {
-    if (_formKey.currentState?.validate() ?? false) {
-      final result = {
-        'name': _nameCtrl.text.trim(),
-        'email': _emailCtrl.text.trim(),
-        'message': _msgCtrl.text.trim(),
-      };
-      Navigator.pop(context, {
-        'name': _nameCtrl.text.trim(),
-        'email': _emailCtrl.text.trim(),
-        'message': _msgCtrl.text.trim(),
-      }); // 🔙 sonucu geri döndür
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lütfen formdaki hataları düzelt.')),
-      );
-    }
-  }
+  bool _isSending = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('İletişim Sayfası')),
-      body: SingleChildScrollView(
+      appBar: AppBar(title: const Text('İletişim')),
+      body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
-          autovalidateMode: AutovalidateMode.disabled, // istersen .onUserInteraction yap
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Ad
               TextFormField(
-                controller: _nameCtrl,
-                textInputAction: TextInputAction.next,
+                controller: _nameController,
                 decoration: const InputDecoration(
-                  labelText: 'Ad',
+                  labelText: 'Adınız',
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) => _validateRequired(v, 'Ad'),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Ad kısmı boş olamaz';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 12),
+
+              // E-posta
               TextFormField(
-                controller: _emailCtrl,
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
+                controller: _emailController,
                 decoration: const InputDecoration(
                   labelText: 'E-posta',
                   border: OutlineInputBorder(),
                 ),
-                validator: _validateEmail,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'E-posta boş olamaz';
+                  }
+                  final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+                  if (!emailRegex.hasMatch(value)) {
+                    return 'Geçerli bir e-posta giriniz';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 12),
+
+              // Mesaj
               TextFormField(
-                controller: _msgCtrl,
-                maxLines: 4,
-                textInputAction: TextInputAction.done,
+                controller: _messageController,
                 decoration: const InputDecoration(
-                  labelText: 'Mesaj',
-                  alignLabelWithHint: true,
+                  labelText: 'Mesajınız',
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) => _validateRequired(v, 'Mesaj'),
+                maxLines: 3,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Mesaj boş olamaz';
+                  }
+                  if (value.length < 10) {
+                    return 'Mesaj en az 10 karakter olmalı';
+                  }
+                  if (value.length > 200) {
+                    return 'Mesaj en fazla 200 karakter olabilir';
+                  }
+                  return null;
+                },
               ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: _submit,
-                icon: const Icon(Icons.send),
-                label: const Text('Gönder'),
+              const SizedBox(height: 20),
+              const Hero(
+                tag: 'profile-pic',
+                child: CircleAvatar(
+                  radius: 64, // burada boyut farklı olabilir
+                  backgroundImage: AssetImage('assets/avatar.png'),
+                ),
               ),
 
-              // (Opsiyonel) En altta girilen bilgileri canlı göster
-              const SizedBox(height: 20),
-              const Divider(),
-              const SizedBox(height: 8),
-              Text(
-                'Önizleme',
-                style: Theme.of(context).textTheme.titleMedium,
+
+              // Gönder butonu
+              ElevatedButton.icon(
+                onPressed: _isSending
+                    ? null
+                    : () {
+                  if (_formKey.currentState!.validate()) {
+                    setState(() => _isSending = true);
+
+                    // Simüle gönderim
+                    Future.delayed(const Duration(seconds: 1), () {
+                      setState(() => _isSending = false);
+                      Navigator.pop(context, {
+                        'name': _nameController.text,
+                        'email': _emailController.text,
+                        'message': _messageController.text,
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Mesaj başarıyla gönderildi!'),
+                        ),
+                      );
+                      _formKey.currentState!.reset();
+                    });
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Lütfen tüm alanları doğru doldurun'),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.send),
+                label: _isSending
+                    ? const Text('Gönderiliyor...')
+                    : const Text('Gönder'),
               ),
-              const SizedBox(height: 8),
-              Text('Ad: ${_nameCtrl.text}'),
-              Text('E-posta: ${_emailCtrl.text}'),
-              Text('Mesaj: ${_msgCtrl.text}'),
             ],
           ),
         ),

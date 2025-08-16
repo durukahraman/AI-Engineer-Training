@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'counter_page.dart';
 import 'contact_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 void main() => runApp(const MyApp());
 
@@ -33,6 +35,23 @@ class _BusinessCardPageState extends State<BusinessCardPage> {
   String? _lastEmail;
   String? _lastMessage;
 
+
+  @override
+  void initState() {
+    super.initState();
+    loadLastMessage().then((msg) {
+      if (msg != null) {
+        setState(() {
+          _lastName = msg['name'];
+          _lastEmail = msg['email'];
+          _lastMessage = msg['message'];
+        });
+      }
+    });
+
+  }
+
+
   Future<void> _goToContact() async {
     final result = await Navigator.push<Map<String, String>?>(
       context,
@@ -47,6 +66,20 @@ class _BusinessCardPageState extends State<BusinessCardPage> {
     }
   }
 
+  Future<void> saveLastMessage(Map<String, String> msg) async {
+    final sp = await SharedPreferences.getInstance();
+    await sp.setString('last_message', jsonEncode(msg));
+  }
+
+  Future<Map<String, String>?> loadLastMessage() async {
+    final sp = await SharedPreferences.getInstance();
+    final raw = sp.getString('last_message');
+    if (raw == null) return null;
+    final map = Map<String, dynamic>.from(jsonDecode(raw));
+    return map.map((k, v) => MapEntry(k, v.toString()));
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -60,9 +93,12 @@ class _BusinessCardPageState extends State<BusinessCardPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const CircleAvatar(
-                  radius: 44,
-                  backgroundImage: AssetImage('assets/avatar.png'), // örnek avatar
+                const Hero(
+                  tag: 'profile-pic',
+                  child: CircleAvatar(
+                    radius: 44,
+                    backgroundImage: AssetImage('assets/avatar.png'),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 const Text(
@@ -106,19 +142,14 @@ class _BusinessCardPageState extends State<BusinessCardPage> {
                     );
 
                     if (result != null) {
-                      // Basit gösterim: SnackBar
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Mesaj alındı: ${result['name']} • ${result['email']}',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      );
-
-                      // (İsteğe bağlı) Son mesajı ekranda göstermek için setState kullan:
-                      // setState(() => _lastMessage = result);
+                      setState(() {
+                        _lastName = result['name'];
+                        _lastEmail = result['email'];
+                        _lastMessage = result['message'];
+                      });
+                      await saveLastMessage(result);
                     }
+
                   },
                   icon: const Icon(Icons.send),
                   label: const Text('İletişime Geç'),
@@ -139,33 +170,33 @@ class _BusinessCardPageState extends State<BusinessCardPage> {
                 // --- Son mesaj önizleme (ContactPage'den dönen veri) ---
                 if (_lastMessage != null) ...[
                   const SizedBox(height: 16),
-                  const Divider(),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Son İletişim:',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.teal.withOpacity(.06),
+                  Card(
+                    elevation: 2,
+                    color: Colors.white,
+                    shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (_lastName != null) Text('Ad: $_lastName'),
-                        if (_lastEmail != null) Text('E-posta: $_lastEmail'),
-                        const SizedBox(height: 6),
-                        Text('Mesaj: $_lastMessage'),
-                      ],
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Son İletişim',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: Colors.teal, fontWeight: FontWeight.bold
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          if (_lastName != null) Text('👤 Ad: $_lastName'),
+                          if (_lastEmail != null) Text('✉ E-posta: $_lastEmail'),
+                          const SizedBox(height: 6),
+                          Text('💬 Mesaj: $_lastMessage'),
+                        ],
+                      ),
                     ),
                   ),
-                ],
+                ]
+
               ],
             ),
           ),
@@ -173,6 +204,7 @@ class _BusinessCardPageState extends State<BusinessCardPage> {
       ),
     );
   }
+
 }
 
 class _InfoTile extends StatelessWidget {
