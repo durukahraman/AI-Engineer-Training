@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'api_client.dart';
 
 class PredictPage extends StatefulWidget {
   const PredictPage({super.key});
-
   @override
   State<PredictPage> createState() => _PredictPageState();
 }
@@ -11,49 +11,37 @@ class PredictPage extends StatefulWidget {
 class _PredictPageState extends State<PredictPage> {
   final _formKey = GlobalKey<FormState>();
   final _hoursCtrl = TextEditingController();
-  String? _result;                 // ekranda gösterilecek mock sonuç
-  String? _lastSavedPrediction;    // (ops) en son kaydedilen tahmin
-
-  @override
-  void initState() {
-    super.initState();
-    _loadLastPrediction();
-  }
-
-  Future<void> _loadLastPrediction() async {
-    final sp = await SharedPreferences.getInstance();
-    setState(() => _lastSavedPrediction = sp.getString("last_prediction"));
-  }
-
-  Future<void> _saveLastPrediction(String value) async {
-    final sp = await SharedPreferences.getInstance();
-    await sp.setString("last_prediction", value);
-  }
-
-  void _predict() async {
-    if (!_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lütfen geçerli bir saat değeri girin')),
-      );
-      return;
-    }
-
-    final hours = double.parse(_hoursCtrl.text.trim());
-
-    // --- MOCK TAHMİN --- (şimdilik basit bir formül)
-    final predictedScore = (hours * 9.5 + 30).clamp(0, 100).toStringAsFixed(1);
-    final text = "Tahmini puan: $predictedScore";
-
-    setState(() => _result = text);
-
-    // (Opsiyonel) kaydet
-    await _saveLastPrediction(text);
-  }
+  bool _loading = false;
+  String? _result;
 
   @override
   void dispose() {
     _hoursCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _save(String text) async {
+    final sp = await SharedPreferences.getInstance();
+    await sp.setString('last_prediction', text);
+  }
+
+  Future<void> _predict() async {
+    if (!_formKey.currentState!.validate()) return;
+    final hours = double.parse(_hoursCtrl.text.trim());
+    setState(() => _loading = true);
+    try {
+      final y = await ApiClient.predict(hours);
+      final text = 'Tahmini puan: ${y.toStringAsFixed(1)}';
+      setState(() => _result = text);
+      await _save(text);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sunucuya bağlanılamadı: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -64,26 +52,15 @@ class _PredictPageState extends State<PredictPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            if (_lastSavedPrediction != null) ...[
-              Card(
-                elevation: 1,
-                child: ListTile(
-                  leading: const Icon(Icons.history),
-                  title: const Text('Son kaydedilen tahmin'),
-                  subtitle: Text(_lastSavedPrediction!),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
             Form(
               key: _formKey,
               child: TextFormField(
                 controller: _hoursCtrl,
-                keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
                   labelText: 'Çalışma saati (0–12)',
                   border: OutlineInputBorder(),
                 ),
+                keyboardType: TextInputType.number,
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Boş bırakılamaz';
                   final x = double.tryParse(v);
@@ -94,41 +71,25 @@ class _PredictPageState extends State<PredictPage> {
               ),
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _predict,
-                    icon: const Icon(Icons.calculate),
-                    label: const Text('Tahmin Et'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => setState(() => _result = null),
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Sıfırla'),
-                  ),
-                ),
-              ],
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _loading ? null : _predict,
+                icon: _loading
+                    ? const SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+                    : const Icon(Icons.cloud),
+                label: Text(_loading ? 'Gönderiliyor...' : 'API’den Tahmin Al'),
+              ),
             ),
             const SizedBox(height: 16),
             if (_result != null)
               Card(
-                elevation: 2,
                 child: ListTile(
                   leading: const Icon(Icons.insights),
                   title: Text(_result!, style: const TextStyle(fontSize: 18)),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.check),
-                    onPressed: () {
-                      Navigator.pop(context, _result); // geri dönüş örneği
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Tahmin döndürüldü')),
-                      );
-                    },
-                  ),
                 ),
               ),
           ],
