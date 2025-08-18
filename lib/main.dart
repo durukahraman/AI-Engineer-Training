@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'counter_page.dart';
 import 'contact_page.dart';
+import 'predict_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
@@ -61,7 +62,9 @@ class _BusinessCardPageState extends State<BusinessCardPage> {
     if (result != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Mesaj alındı: ${result['name']} • ${result['email']}')),
+
       );
+
       // (Opsiyonel) setState(() => _lastMessage = result););
     }
   }
@@ -136,6 +139,30 @@ class _BusinessCardPageState extends State<BusinessCardPage> {
                 // --- Butonlar ---
                 FilledButton.icon(
                   onPressed: () async {
+                    final res = await Navigator.push<String?>(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PredictPage()),
+                    );
+                    if (res != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Gelen tahmin: $res')),
+                      );
+                    }
+                    Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (_, __, ___) => const PredictPage(),
+                        transitionsBuilder: (_, a, __, child) =>
+                            FadeTransition(opacity: a, child: child),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.trending_up),
+                  label: const Text('Tahmin Sayfası'),
+                ),
+
+                FilledButton.icon(
+                  onPressed: () async {
                     final result = await Navigator.push<Map<String, String>?>(
                       context,
                       MaterialPageRoute(builder: (_) => const ContactPage()),
@@ -156,6 +183,7 @@ class _BusinessCardPageState extends State<BusinessCardPage> {
                 ),
 
                 const SizedBox(height: 8),
+
                 FilledButton.icon(
                   onPressed: () {
                     Navigator.push(
@@ -166,6 +194,7 @@ class _BusinessCardPageState extends State<BusinessCardPage> {
                   icon: const Icon(Icons.add_circle),
                   label: const Text('Sayaç Sayfası'),
                 ),
+
 
                 // --- Son mesaj önizleme (ContactPage'den dönen veri) ---
                 if (_lastMessage != null) ...[
