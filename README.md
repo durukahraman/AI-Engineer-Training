@@ -1,7 +1,7 @@
 # AI-Engineer-Training
 My AI Engineer and Flutter Developer Journey – 3 Months of Training and Projects
 
-## Gün 2 – Neler öğrendim?
+# Neler öğrendim?
 
 - NumPy & Pandas ile veri işleme
 - Matplotlib ile grafik çizme
