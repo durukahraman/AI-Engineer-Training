@@ -4,6 +4,8 @@ from typing import Optional, List
 import joblib
 import numpy as np
 
+print(f"Input: {X}, Prediction: {yhat}, Proba: {proba}")
+
 app = FastAPI(title="Study Hours → Score API", version="0.2.0")
 
 # Modeli yükle
