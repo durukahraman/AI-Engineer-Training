@@ -1,43 +1,47 @@
+# lib/main.py
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
-from typing import Optional, List
-import joblib
-import numpy as np
+from pydantic import BaseModel
+from typing import List
+from fastapi.middleware.cors import CORSMiddleware
+import numpy as np, joblib
+from pathlib import Path
 
-print(f"Input: {X}, Prediction: {yhat}, Proba: {proba}")
+app = FastAPI(title="RF Model API", version="1.0.0")
 
-app = FastAPI(title="Study Hours → Score API", version="0.2.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], allow_credentials=True,
+    allow_methods=["*"], allow_headers=["*"],
+)
 
-# Modeli yükle
-try:
-    model = joblib.load("best_model.pkl")  # dosya aynı klasörde olmalı
-except Exception as e:
-    model = None
-    print(f"[WARN] Model yüklenemedi: {e}")
+MODEL_FILE = Path(__file__).parent / "best_model.pkl"
+if not MODEL_FILE.exists():
+    raise RuntimeError(f"Model bulunamadı: {MODEL_FILE}")
+model = joblib.load(MODEL_FILE)
+N_FEATURES = getattr(model, "n_features_in_", None)  # örn. 10
 
-class PredictIn(BaseModel):
-    hours: Optional[float] = Field(None, ge=0, le=12)
-    features: Optional[List[float]] = None
+class PredictRequest(BaseModel):
+    features: List[float]
 
-class PredictOut(BaseModel):
-    predicted: float
-    proba: Optional[float] = None
+class PredictResponse(BaseModel):
+    prediction: int
+    proba: float | None = None
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model_loaded": model is not None}
+    return {"status": "ok", "n_features": int(N_FEATURES or 0)}
 
-@app.post("/predict", response_model=PredictOut)
-def predict(p: PredictIn):
-    if model is None:
-        raise HTTPException(status_code=500, detail="Model yüklenmedi (best_model.pkl bulunamadı).")
-    if p.features is not None:
-        X = np.array(p.features, dtype=float).reshape(1, -1)
-    elif p.hours is not None:
-        X = np.array([[float(p.hours)]], dtype=float)
-    else:
-        raise HTTPException(status_code=400, detail="hours veya features göndermelisiniz.")
+@app.post("/predict", response_model=PredictResponse)
+def predict(req: PredictRequest):
+    x = np.array(req.features, dtype=float).reshape(1, -1)
+    if N_FEATURES is not None and x.shape[1] != N_FEATURES:
+        raise HTTPException(status_code=400, detail=f"{N_FEATURES} özellik bekleniyor.")
+    pred = int(model.predict(x)[0])
+    proba = float(model.predict_proba(x)[0].max()) if hasattr(model, "predict_proba") else None
+    return PredictResponse(prediction=pred, proba=proba)
 
-    proba = float(model.predict_proba(X)[0][1]) if hasattr(model, "predict_proba") else None
-    yhat = float(model.predict(X)[0])
-    return PredictOut(predicted=yhat, proba=proba)
+from fastapi.routing import APIRoute
+print("== Registered routes ==")
+for r in app.routes:
+    if isinstance(r, APIRoute):
+        print(r.path, r.methods)

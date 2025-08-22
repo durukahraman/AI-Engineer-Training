@@ -10,13 +10,14 @@ class PredictPage extends StatefulWidget {
 
 class _PredictPageState extends State<PredictPage> {
   final _formKey = GlobalKey<FormState>();
-  final _hoursCtrl = TextEditingController();
+  final List<TextEditingController> _ctrls =
+  List.generate(10, (_) => TextEditingController());
   bool _loading = false;
   String? _result;
 
   @override
   void dispose() {
-    _hoursCtrl.dispose();
+    for (final c in _ctrls) c.dispose();
     super.dispose();
   }
 
@@ -27,11 +28,17 @@ class _PredictPageState extends State<PredictPage> {
 
   Future<void> _predict() async {
     if (!_formKey.currentState!.validate()) return;
-    final hours = double.parse(_hoursCtrl.text.trim());
+
+    final features = _ctrls.map((c) => double.parse(c.text.trim())).toList();
+
     setState(() => _loading = true);
     try {
-      final y = await ApiClient.predict(hours);
-      final text = 'Tahmini puan: ${y.toStringAsFixed(1)}';
+      final resp = await ApiClient.predict(features);
+      final pred = resp["prediction"];
+      final proba = resp["proba"];
+      final text = proba == null
+          ? "Tahmin: $pred"
+          : "Tahmin: $pred  •  Güven: ${(proba * 100).toStringAsFixed(1)}%";
       setState(() => _result = text);
       await _save(text);
     } catch (e) {
@@ -44,57 +51,91 @@ class _PredictPageState extends State<PredictPage> {
     }
   }
 
+  InputDecoration _dec(String label) => InputDecoration(
+    labelText: label,
+    border: const OutlineInputBorder(),
+    isDense: true,
+  );
+
+  String? _validator(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Boş bırakılamaz';
+    final x = double.tryParse(v);
+    if (x == null) return 'Sayı girin';
+    // opsiyonel sınır: if (x < -10 || x > 10) return '-10 ile 10 arası';
+    return null;
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Tahmin')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Form(
-              key: _formKey,
-              child: TextFormField(
-                controller: _hoursCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Çalışma saati (0–12)',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Boş bırakılamaz';
-                  final x = double.tryParse(v);
-                  if (x == null) return 'Sayı girin';
-                  if (x < 0 || x > 12) return '0–12 arası olmalı';
-                  return null;
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _loading ? null : _predict,
-                icon: _loading
-                    ? const SizedBox(
-                  width: 18, height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-                    : const Icon(Icons.cloud),
-                label: Text(_loading ? 'Gönderiliyor...' : 'API’den Tahmin Al'),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_result != null)
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.insights),
-                  title: Text(_result!, style: const TextStyle(fontSize: 18)),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // GridView mutlaka sınırlı yükseklik almalı → Expanded
+              Expanded(
+                child: Form(
+                  key: _formKey,
+                  child: GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 3.6,
+                    ),
+                    itemCount: _ctrls.length, // 10
+                    itemBuilder: (_, i) => TextFormField(
+                      controller: _ctrls[i],
+                      decoration: InputDecoration(
+                        labelText: 'f$i',
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Boş bırakılamaz';
+                        final x = double.tryParse(v);
+                        if (x == null) return 'Sayı girin';
+                        return null;
+                      },
+                    ),
+                  ),
                 ),
               ),
-          ],
+
+              const SizedBox(height: 12),
+
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _loading ? null : _predict,
+                  icon: _loading
+                      ? const SizedBox(
+                    width: 18, height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                      : const Icon(Icons.cloud),
+                  label: Text(_loading ? 'Gönderiliyor...' : 'API’den Tahmin Al'),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              if (_result != null)
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.insights),
+                    title: Text(_result!, style: const TextStyle(fontSize: 16)),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
+
 }
