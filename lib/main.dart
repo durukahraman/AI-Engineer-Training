@@ -252,7 +252,10 @@ class _InfoTile extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       visualDensity: const VisualDensity(vertical: -2),
     );
+
   }
+
+
 }
 
 /// ContactPage: Form + controller + validation + Navigator.pop ile veri döndürme
