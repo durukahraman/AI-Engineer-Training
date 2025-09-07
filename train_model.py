@@ -13,5 +13,5 @@ model.fit(X, y)
 # Modele kaydet
 joblib.dump(model, "best_model.pkl")
 
-print("✅ Model best_model.pkl olarak kaydedildi")
+print("✅ Model best_model.pkl olarak kaydedildi"),
 
